@@ -86,9 +86,7 @@ async def handle_answer(event):
         ), Button.inline("Нет", f"answer_no_{next_question_number}")
         await event.edit(next_question_data["text"], buttons=[keyboard])
     else:
-        await event.edit(
-            f"Поздравляю тебя с прохождением теста! Я специально для тебя записала аудио-рекоменадцию.\n\nТвое количество баллов - {user.test_counter}"
-        )
+        await event.delete()
     
         audio_file = None
         if user.test_counter >= 0 and user.test_counter <= 7:
@@ -98,10 +96,10 @@ async def handle_answer(event):
         elif user.test_counter >= 18 and user.test_counter <= 21:
             audio_file = "audio/18-21.m4a"
 
+        
+        await client.forward_messages(event.chat_id, 48, channel_id, drop_author=True)
         if audio_file:
             await event.respond("Аудио-рекомендация", file=audio_file)
-        await client.forward_messages(event.chat_id, 48, channel_id, drop_author=True)
-
         await event.respond("Теперь пришло время прослушать подкаст!", buttons=Button.inline("Получить подкаст", f"start_podcast"))
 
 
@@ -237,7 +235,7 @@ async def start_course_day_one(event):
     
     join_chat = Button.url("Присоединиться к чату", "https://t.me/+-5Hrf4ZGFcFmZjU6")
     await event.respond('''Для наилучшего твоего результата помимо этого замечательного бота у тебя будет моя поддержка в общем чате интенсива. Там ты всегда можешь получить пояснения и поддержку от меня. Все участники интенсива смогут общаться внутри чата и делиться своими ощущениями, состоянием, проблемами и результатами.''', buttons=join_chat)
-
+    await asyncio.sleep(30)
     continue_button = Button.inline("Продолжить", b"first_podcast_intro")
     await asyncio.sleep(5)
     await client.forward_messages(event.chat_id, 4, channel_id, drop_author=True)
@@ -345,7 +343,7 @@ async def start_test(event):
             ]
             
             try:
-                await conv.send_message(question_data["text"], buttons=keyboard)
+                await conv.send_message(f"{question_number}. {question_data['text']}", buttons=keyboard)
                 response = await conv.get_response()
                 answer = await response.text
                 correct_answer = question_data["correct_answer"]
@@ -406,7 +404,24 @@ async def podcast_day_two(event):
     channel_id = 2173040707
     await client.forward_messages(event.chat_id, 12, channel_id, drop_author=True)
     await client.forward_messages(event.chat_id, 13, channel_id, drop_author=True)
-    
+    async with client.conversation(chat) as conv:
+        await conv.send_message('''Поделись: 
+1. Сколько баллов от 1 до 10 ты бы поставила этому подкасту?
+
+2. Какое общее впечатление у тебя от пройденного материала? - поделись в одном предложении
+
+3. Какие есть вопросы ко мне после прослушивания? 
+Что непонятно? 
+Есть ли сопротивление к информации? 
+
+''')
+        try:
+            ev = conv.wait_event(events.NewMessage(), timeout=300)
+            result = await ev  # 300 seconds for 5 minutes
+        except asyncio.TimeoutError:
+            await conv.send_message("Время ожидания вышло.")
+            response = None
+
     continue_button = Button.inline("Продолжить", b"post_podcast_day_two")
     await event.respond("Нажми, чтобы продолжить", buttons=continue_button)
 
@@ -415,7 +430,7 @@ async def post_podcast_day_two(event):
     print('11')
     channel_id = 2173040707
     join_chat = Button.url("Присоединиться к чату", "https://t.me/+-5Hrf4ZGFcFmZjU6")
-    await client.forward_messages(event.chat_id, 14, channel_id, drop_author=True)
+    await client.forward_messages(event.chat_id, 39, channel_id, drop_author=True)
     await event.respond("Не забывай про наш чат ⬇️", buttons=join_chat)
 
     continue_button = Button.inline("Продолжить", b"day_three_intro")
@@ -446,7 +461,23 @@ async def three_next(event):
     channel_id = 2173040707
     await client.forward_messages(event.chat_id, 18, channel_id, drop_author=True)
     await client.forward_messages(event.chat_id, 19, channel_id, drop_author=True)
-    
+    async with client.conversation(chat) as conv:
+        await conv.send_message('''Поделись: 
+1. Сколько баллов от 1 до 10 ты бы поставила этому подкасту?
+
+2. Какое общее впечатление у тебя от пройденного материала? - поделись в одном предложении
+
+3. Какие есть вопросы ко мне после прослушивания? 
+Что непонятно? 
+Есть ли сопротивление к информации? 
+
+''')
+        try:
+            ev = conv.wait_event(events.NewMessage(), timeout=300)
+            result = await ev  # 300 seconds for 5 minutes
+        except asyncio.TimeoutError:
+            await conv.send_message("Время ожидания вышло.")
+            response = None
     continue_button = Button.inline("Продолжить", b"post_three_next")
     await event.respond("Нажми, чтобы продолжить", buttons=continue_button)
 
@@ -486,7 +517,23 @@ async def four_podcast(event):
     channel_id = 2173040707
     await client.forward_messages(event.chat_id, 23, channel_id, drop_author=True)
     await client.forward_messages(event.chat_id, 24, channel_id, drop_author=True)
-    
+    async with client.conversation(chat) as conv:
+        await conv.send_message('''Поделись: 
+1. Сколько баллов от 1 до 10 ты бы поставила этому подкасту?
+
+2. Какое общее впечатление у тебя от пройденного материала? - поделись в одном предложении
+
+3. Какие есть вопросы ко мне после прослушивания? 
+Что непонятно? 
+Есть ли сопротивление к информации? 
+
+''')
+        try:
+            ev = conv.wait_event(events.NewMessage(), timeout=300)
+            result = await ev  # 300 seconds for 5 minutes
+        except asyncio.TimeoutError:
+            await conv.send_message("Время ожидания вышло.")
+            response = None
     continue_button = Button.inline("Продолжить", b"post_four_podcast")
     await event.respond("Нажми, чтобы продолжить", buttons=continue_button)
 
@@ -567,14 +614,14 @@ async def day_five_intro(event):
 @client.on(events.CallbackQuery(data=b"day_five_part_two"))
 async def day_five_part_two(event):
     print('26')
-    await client.forward_messages(event.chat_id, 34, channel_id, drop_author=True)
+    await client.forward_messages(event.chat_id, 35, channel_id, drop_author=True)
     continue_button = Button.inline("Продолжить", b"day_five_part_three")
     await event.respond("Нажми, чтобы продолжить", buttons=continue_button)
 
 @client.on(events.CallbackQuery(data=b"day_five_part_three"))
 async def day_five_part_three(event):
     print('27')
-    await client.forward_messages(event.chat_id, 35, channel_id, drop_author=True)
+    await client.forward_messages(event.chat_id, 34, channel_id, drop_author=True)
     continue_button = Button.inline("Продолжить", b"day_five_part_four")
     await event.respond("Нажми, чтобы продолжить", buttons=continue_button)
 
