@@ -127,12 +127,12 @@ async def start_test(event):
     # Создание платежа
     payment = Payment.create({
         "amount": {
-            "value": "888.00",  # Сумма платежа
+            "value": "800.00",  # Сумма платежа
             "currency": "RUB"
         },
         "confirmation": {
             "type": "redirect",
-            "return_url": "https://your-website.com/return_after_payment"
+            "return_url": "https://itnetwork.today/payment"
         },
         "capture": True,
         "description": "Оплата интенсива СамоценнаЯ"
@@ -436,7 +436,7 @@ async def podcast_day_two(event):
         join_chat = Button.url("Присоединиться к чату", "https://t.me/+-5Hrf4ZGFcFmZjU6")
         await client.forward_messages(event.chat_id, 39, channel_id, drop_author=True)
         await event.respond("Не забывай про наш чат ⬇️", buttons=join_chat)
-
+        await event.respond("Отлично 🤍 ты прошла все шаги на сегодня! У тебя есть возможность до завтрашнего утра ещё раз пройти все шаги для лучшего усвоения материала")
         continue_button = Button.inline("Продолжить", b"day_three_intro")
         await event.respond("Нажми, чтобы продолжить", buttons=continue_button)
     
@@ -503,8 +503,8 @@ async def post_three_next(event):
     
     join_chat = Button.url("Присоединиться к чату", "https://t.me/+-5Hrf4ZGFcFmZjU6")
     continue_button = Button.inline("Продолжить", b"day_four_intro")
-    await event.respond("После выполнения задания - обязательно поделись своими мыслями и ощущениями ", buttons=[join_chat, continue_button])
-
+    await event.respond("После выполнения задания - обязательно поделись своими мыслями и ощущениями ")
+    await event.respond("Отлично 🤍 ты прошла все шаги на сегодня! У тебя есть возможность до завтрашнего утра ещё раз пройти все шаги для лучшего усвоения материала", buttons=[join_chat, continue_button])
 
 @client.on(events.CallbackQuery(data=b"day_four_intro"))
 async def day_four_intro(event):
@@ -602,6 +602,7 @@ async def four_part_two(event):
     print('25')
     await event.respond("Памятка")
     await client.forward_messages(event.chat_id, 46, channel_id, drop_author=True)
+    await event.respond("Отлично 🤍 ты прошла все шаги на сегодня! У тебя есть возможность до завтрашнего утра ещё раз пройти все шаги для лучшего усвоения материала")
     continue_button = Button.inline("Продолжить", b"day_five_intro")
     await event.respond("Нажми, чтобы продолжить", buttons=continue_button)
 
