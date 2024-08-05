@@ -3,12 +3,32 @@ from telethon.tl.custom import Button
 from database import User, session
 from yookassa import Configuration, Payment
 import asyncio
+import logging
+import requests
+import re
+from text import INFO_TEXT
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 TELEGRAM_API_ID = 7248451
 TELEGRAM_API_HASH = "db9b16eff233ee8dfd7c218138cb2e10"
 
-channel_id = 2173040707
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("urllib3").setLevel(logging.DEBUG)
+logging.getLogger("requests").setLevel(logging.DEBUG)
+logging.getLogger("telethon").setLevel(logging.DEBUG)
+
+channel_id = -1002173040707
 client = TelegramClient("session_name", TELEGRAM_API_ID, TELEGRAM_API_HASH)
+
+from database import User, session  # Замените 'your_database_file' на имя вашего файла
+
+# Конфигурация и создание сессии базы данных
+Base = declarative_base()
+engine = create_engine("sqlite:///users.db")
+Session = sessionmaker(bind=engine)
+session = Session()
 
 questions = {
     1: {"text": "Ты уверенный в себе человек?", "correct_answer": "yes"},
@@ -118,34 +138,74 @@ async def start(event):
 
 
 
+from telethon import Button
+
 @client.on(events.CallbackQuery(data=b"pay"))
 async def start_test(event):
-    shop_id = '374651'
-    secret_key = 'live_iiSRycMjbce_SzWoYs0EBBI46Iyw3gpGrbuik1gty0o'
-    Configuration.configure(shop_id, secret_key)
-    chat_id = event.chat_id
-    # Создание платежа
-    payment = Payment.create({
-        "amount": {
-            "value": "800.00",  # Сумма платежа
-            "currency": "RUB"
-        },
-        "confirmation": {
-            "type": "redirect",
-            "return_url": "https://itnetwork.today/payment"
-        },
-        "capture": True,
-        "description": "Оплата интенсива СамоценнаЯ"
-    })
+    try:
+        shop_id = '374651'
+        secret_key = 'live_iiSRycMjbce_SzWoYs0EBBI46Iyw3gpGrbuik1gty0o'
+        Configuration.configure(shop_id, secret_key)
+        chat_id = event.chat_id
 
-    # Отправка ссылки для оплаты пользователю
-    payment_url = payment.confirmation.confirmation_url
-    await client.send_message(chat_id, f"Пожалуйста, перейдите по ссылке для оплаты: {payment_url}")
+        # Создание платежа
+        payment = Payment.create({
+            "amount": {
+                "value": "888.00",  # Сумма платежа
+                "currency": "RUB"
+            },
+            "confirmation": {
+                "type": "redirect",
+                "return_url": "https://itnetwork.today/payment"
+            },
+            "capture": True,
+            "description": "Оплата интенсива СамоценнаЯ"
+        })
+
+        # Отправка ссылки для оплаты пользователю
+        payment_url = payment.confirmation.confirmation_url
+        txid = payment.id  # Получаем идентификатор платежа
+        keyboard = Button.inline("Проверить оплату", data=f"check_payment:{txid}")
+        await client.forward_messages(event.chat_id, 54, channel_id, drop_author=True)
+        await client.send_message(chat_id, f"Пожалуйста, перейдите по ссылке для оплаты: {payment_url}\n\nПосле оплаты нажми кнопку ниже", buttons=keyboard)
+
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Ошибка при соединении с YooKassa: {e}")
+        await client.send_message(chat_id, "Произошла ошибка при создании платежа. Попробуйте позже.")
+
+@client.on(events.CallbackQuery(data=re.compile(b"check_payment:(.*)")))
+async def check_payment(event):
+    txid = event.data.decode('utf-8').split(':')[1]  # Извлекаем txid из данных
+    chat_id = event.chat_id
+
+    try:
+        # Проверка статуса платежа по txid
+        shop_id = '374651'
+        secret_key = 'live_iiSRycMjbce_SzWoYs0EBBI46Iyw3gpGrbuik1gty0o'
+        Configuration.configure(shop_id, secret_key)
+        payment = Payment.find_one(txid)
+        if payment.status == "succeeded":
+            # Обновление статуса пользователя в базе данных
+            telegram_id = event.sender_id  # Получаем Telegram ID пользователя
+            user = session.query(User).filter_by(telegram_id=telegram_id).first()
+            if user:
+                user.payment_status = True
+                session.commit()
+                keyboard = Button.inline("Начать интенсив", b"start_course")
+                await client.send_message(chat_id, "Платеж успешно завершен", buttons=keyboard)
+            else:
+                await client.send_message(chat_id, "Пользователь не найден в базе данных.")
+        else:
+            await client.send_message(chat_id, "Платеж еще не завершен.")
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Ошибка при проверке статуса платежа: {e}")
+        await client.send_message(chat_id, "Произошла ошибка при проверке статуса платежа. Попробуйте позже.")
+
 
 
 @client.on(events.CallbackQuery(data=b"info"))
 async def start_test(event):
-    await event.respond('Тут будет информация про интенсиве')
+    await event.respond(INFO_TEXT)
 
 @client.on(events.NewMessage(pattern="/start"))
 async def start(event):
@@ -156,7 +216,7 @@ async def start(event):
         session.commit()
     await menu(event)
     keyboard = Button.inline("Начать тест", b"start_test")
-    text = ''' Для того, чтобы открыть дверь в подсознание, нужны ключи.🔑 
+    text = '''Для того, чтобы открыть дверь в подсознание, нужны ключи.🔑 
 И чтобы мы скорей их нашли, необходимо пройти тест на «САМОЦЕННОСТЬ».
 Кнопка ниже ⬇️ 
 
@@ -230,7 +290,7 @@ async def ready(event):
 ''', buttons=keyboard)
 
 
-@client.on(events.NewMessage(pattern="/course"))
+@client.on(events.CallbackQuery(data=b"start_course"))
 async def start_course_day_one(event):
     print('1')
     user = await event.get_sender()
@@ -242,11 +302,12 @@ async def start_course_day_one(event):
 После чего доступ к нему у тебя закроется, это сделано с заботой о тебе.🤍''')
     
     join_chat = Button.url("Присоединиться к чату", "https://t.me/+-5Hrf4ZGFcFmZjU6")
-    await event.respond('''Для наилучшего твоего результата помимо этого замечательного бота у тебя будет моя поддержка в общем чате интенсива. Там ты всегда можешь получить пояснения и поддержку от меня. Все участники интенсива смогут общаться внутри чата и делиться своими ощущениями, состоянием, проблемами и результатами.''', buttons=join_chat)
-    await asyncio.sleep(30)
-    continue_button = Button.inline("Продолжить", b"first_podcast_intro")
-    await asyncio.sleep(5)
+    await asyncio.sleep(20)
     await client.forward_messages(event.chat_id, 4, channel_id, drop_author=True)
+    await event.respond('''Для наилучшего твоего результата помимо этого замечательного бота у тебя будет моя поддержка в общем чате интенсива. Там ты всегда можешь получить пояснения и поддержку от меня. Все участники интенсива смогут общаться внутри чата и делиться своими ощущениями, состоянием, проблемами и результатами.''', buttons=join_chat)
+
+    continue_button = Button.inline("Продолжить", b"first_podcast_intro")
+    
     continue_button = Button.inline("Продолжить", b"first_podcast_intro")
     await event.respond("Нажми, чтобы продолжить", buttons=continue_button)
 
@@ -394,7 +455,8 @@ async def end_of_day_one(event):
     join_chat = Button.url("Присоединиться к чату", "https://t.me/+-5Hrf4ZGFcFmZjU6")
     continue_button = Button.inline("Продолжить", b"day_two_intro")
     await event.respond("Отлично 🤍 ты прошла все шаги на сегодня! У тебя есть возможность до завтрашнего утра ещё раз пройти все шаги для лучшего усвоения материала")
-    await event.respond("Нажми, чтобы продолжить (уберем потом)", buttons=continue_button)
+    await asyncio.sleep(24 * 3600)
+    await event.respond("Теперь ты можешь приступить ко второму дню", buttons=continue_button)
 
 @client.on(events.CallbackQuery(data=b"day_two_intro"))
 async def day_two_intro(event):
@@ -437,8 +499,9 @@ async def podcast_day_two(event):
         await client.forward_messages(event.chat_id, 39, channel_id, drop_author=True)
         await event.respond("Не забывай про наш чат ⬇️", buttons=join_chat)
         await event.respond("Отлично 🤍 ты прошла все шаги на сегодня! У тебя есть возможность до завтрашнего утра ещё раз пройти все шаги для лучшего усвоения материала")
+        await asyncio.sleep(24 * 3600)
         continue_button = Button.inline("Продолжить", b"day_three_intro")
-        await event.respond("Нажми, чтобы продолжить", buttons=continue_button)
+        await event.respond("Теперь ты можешь приступить к третьему дню", buttons=continue_button)
     
 @client.on(events.CallbackQuery(data=b"day_three_intro"))
 async def day_three_intro(event):
@@ -504,7 +567,9 @@ async def post_three_next(event):
     join_chat = Button.url("Присоединиться к чату", "https://t.me/+-5Hrf4ZGFcFmZjU6")
     continue_button = Button.inline("Продолжить", b"day_four_intro")
     await event.respond("После выполнения задания - обязательно поделись своими мыслями и ощущениями ")
-    await event.respond("Отлично 🤍 ты прошла все шаги на сегодня! У тебя есть возможность до завтрашнего утра ещё раз пройти все шаги для лучшего усвоения материала", buttons=[join_chat, continue_button])
+    await event.respond("Отлично 🤍 ты прошла все шаги на сегодня! У тебя есть возможность до завтрашнего утра ещё раз пройти все шаги для лучшего усвоения материала", buttons=join_chat)
+    await asyncio.sleep(24 * 3600)
+    await event.respond("Теперь ты можешь приступить к четвертому дню", buttons=continue_button)
 
 @client.on(events.CallbackQuery(data=b"day_four_intro"))
 async def day_four_intro(event):
@@ -603,8 +668,9 @@ async def four_part_two(event):
     await event.respond("Памятка")
     await client.forward_messages(event.chat_id, 46, channel_id, drop_author=True)
     await event.respond("Отлично 🤍 ты прошла все шаги на сегодня! У тебя есть возможность до завтрашнего утра ещё раз пройти все шаги для лучшего усвоения материала")
+    await asyncio.sleep(24 * 3600)
     continue_button = Button.inline("Продолжить", b"day_five_intro")
-    await event.respond("Нажми, чтобы продолжить", buttons=continue_button)
+    await event.respond("Теперь ты можешь приступить к пятому дню", buttons=continue_button)
 
 @client.on(events.CallbackQuery(data=b"day_five_intro"))
 async def day_five_intro(event):
@@ -626,7 +692,7 @@ async def day_five_part_two(event):
 @client.on(events.CallbackQuery(data=b"day_five_part_three"))
 async def day_five_part_three(event):
     print('27')
-    url_button = [Button.url("Оставить заявку", "https://google.com"),
+    url_button = [Button.url("Оставить заявку", "https://t.me/Meta_Coach_Tatiana"),
                   Button.inline("Продолжить", b"day_five_part_five")
                   ]
     await event.respond("Чтобы забронировать место на личную консультацию - оставь заявку", buttons=url_button)
